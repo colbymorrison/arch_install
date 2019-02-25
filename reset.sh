@@ -8,3 +8,4 @@ ls /mnt
 mount /dev/sda1 /mnt/boot
 ls /mnt/boot
 ls /mnt/etc/fstab
+hwclock --systohwc
