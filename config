@@ -1,0 +1,35 @@
+Host *
+ AddKeysToAgent yes
+ UseKeychain yes
+ IdentityFile ~/.ssh/id_rsa
+Host homemac
+    HostName 192.168.1.189
+    User Colby
+Host linux1
+    HostName 148.100.99.249
+    User linux1
+    IdentityFile ~/Documents/certs/cluster
+Host master
+    HostName 127.0.0.1
+    User root
+    Port 3022 
+    IdentityFile ~/.ssh/id_rsa
+Host zgmac
+    HostName 148.100.92.186
+    User ubuntu
+    IdentityFile ~/Documents/certs/zgmac
+Host origin-worker
+    HostName 9.37.201.234
+    User root
+    IdentityFile ~/Documents/certs/cluster
+Host origin-master
+    HostName 9.42.88.41
+    User root
+    IdentityFile ~/Documents/certs/cluster
+Host vassar
+    HostName mote.cs.vassar.edu
+    User cmorrison
+Host aws
+    HostName ec2-34-220-44-132.us-west-2.compute.amazonaws.com
+    User ubuntu
+    IdentityFile ~/Code/Node/colby.pem
