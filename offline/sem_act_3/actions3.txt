@@ -1,0 +1,487 @@
+Semantic Actions Phase 3: Subscripts, Relational and Boolean operations
+
+Actions: 22, 24, 25, 26, 27, 28, 29, 32, 33, 34, 38, 39, 47, 53, 54
+
+You will be implementing the semantic actions which handle the
+generation of code for subscripts, relational and boolean operations.
+You are almost done!
+
+First, you will need to revise the following actions from previous phases.
+Actions: 30, 31, 41, 42, 43, 44, 45, 46, 48
+The revisions are detailed below.
+
+In addition to the actions, you will also need to add:
+    - an EType enum with two elements, ARITHMETIC and RELATIONAL to keep
+      track of what kind of expression the semantic actions are dealing with
+
+    - a backpatch function which takes a list of integers as its first
+      argument (instead of just an integer as specified in phase 2) with
+      the following specification
+      void backpatch(List<Integer> list, int x)
+          for every integer i in list
+              if quadruples.getQuad(i) is a "goto"
+                  set the second field of the quad at i to x
+              else quadruples.getQuad(i) is a branch statement
+                  set the fourth field of the quad at i to x
+
+    - a merge function, which merges two lists
+      List<Integer> merge(List<Integer> list1, List<Integer> list2)
+          returns list1 and list2 concatenated together
+
+    - a makeList function, which creates a list of one element
+      List<Integer> makeList(int i)
+          returns a list with i as the only element
+
+NOTE: It might be a good idea to implement this phase in this order:
+1. Implement EType
+2. Implement 32, 33, 34, 53, 54 and revise 48
+3. Implement the makeList, merge functions and add the new backpatch
+   function
+4. Implement 38, 39, 47 and revise the rest of the actions from previous
+   phases
+5. Implement 22, 24, 25, 26, 27, 28, 29
+
+
+/////////////////////////////////////////////////////////////////////
+REVISIONS TO PREVIOUS ACTIONS:
+/////////////////////////////////////////////////////////////////////
+
+#30  : SymbolTableEntry id = lookupID(token);
+       if (id is not found) {
+           throw undeclared variable error;
+       }
+       stack.push(id);
+       stack.push(EType.ARITHMETIC);  // <- add this line
+
+#31  : EType etype = stack.pop()  // <- add this line
+
+       if (etype != EType.ARITHMETIC) {  // <- add this if statement
+           throw EType mismatch error
+       }
+
+       SymbolTableEntry id2 = stack.pop();
+       SymbolTableEntry offset = stack.pop(); // <- change this line
+       SymbolTableEntry id1 = stack.pop();
+
+       if (typeCheck(id1, id2) == 3) {
+           throw type mismatch error;
+       }
+       if (typeCheck(id1, id2) == 2) {
+           VariableEntry temp = create("temp", TokenType.REAL);
+           generate("ltof", id2, temp);
+           if (offset == null) {
+               generate("move", temp, id1);
+           } else {
+               generate("stor", temp, offset, id1);
+           }
+       } else {
+           if (offset == null) {
+               generate("move", id2, id1);
+           } else {
+               generate("stor", id2, offset, id1);
+           }
+       }
+
+#41  : EType etype = stack.pop()  // <- add this line
+
+       if (etype != EType.ARITHMETIC) {  // <- add this if statement
+           throw EType mismatch error
+       }
+
+       SymbolTableEntry id = stack.pop();
+       Token sign = stack.pop();
+       if (sign == UNARYMINUS) {
+           VariableEntry temp = create("temp", id.getType());
+           if (id.getType() == TokenType.INTEGER) {
+               generate("uminus", id, temp);
+           } else {
+               generate("fuminus", id, temp);
+           }
+           stack.push(temp);
+       } else {
+           stack.push(id);
+       }
+
+       stack.push(EType.ARITHMETIC); // <- add this line
+
+#42  : // add everthing from here \/ \/ \/
+       EType etype = stack.pop(); 
+       
+       if (token == OR) {
+           if (etype != EType.RELATIONAL) {
+               throw EType mismatch error
+           }
+           // the top of the stack should be a list of integers
+           List<Integer> EFalse = stack.peek();
+           backpatch(EFalse, quadruples.getNextQuad());
+       }
+       else {
+           if (etype != EType.ARITHMETIC) {
+               throw EType mismatch error
+           }
+       }
+       // until here /\ /\ /\
+
+       // the token should be an operator
+       stack.push(token);
+
+#43  : // add all of the code that is not from phase 2
+       EType etype = stack.pop();
+       if (etype == EType.RELATIONAL) {
+           List<Integer> E2False = stack.pop();
+           List<Integer> E2True = stack.pop();
+           Token operator = stack.pop();
+           List<Integer> E1False = stack.pop();
+           List<Integer> E1True = stack.pop();
+
+           List<Integer> ETrue = merge(E1True, E2True);
+           List<Integer> EFalse = E2False;
+           stack.push(ETrue);
+           stack.push(EFalse);
+           stack.push(EType.RELATIONAL);
+       }
+       else { // if etype == EType.ARITHMETIC
+
+           /////////////////////////////////////////
+           // this is the code from phase 2 \/ \/ \/
+           /////////////////////////////////////////
+
+           SymbolTableEntry id2 = stack.pop();
+           // this is one place where the operator from action 42 is popped
+           Token operator = stack.pop();
+           // get the TVI opcode associated with the operator token
+           // ex. for a token representing addition, opcode would be "add"
+           String opcode = operator.getOpCode();
+           SymbolTableEntry id1 = stack.pop();
+
+           if (typeCheck(id1, id2) == 0) {
+               VariableEntry temp = create("temp", TokenType.Integer);
+               generate(opcode, id1, id2, temp);
+               stack.push(temp);
+           } else if (typeCheck(id1, id2) == 1) {
+               VariableEntry temp create("temp", TokenType.REAL);
+               generate("f" + opcode, id1, id2, temp);
+               stack.push(temp);
+           } else if (typeCheck(id1, id2) == 2) {
+               VariableEntry temp1 = create("temp", TokenType.REAL);
+               VariableEntry temp2 = create("temp", TokenType.REAL);
+               generate("ltof", id2, temp1);
+               generate("f" + opcode, id1, temp1, temp2);
+               stack.push(temp2);
+           } else if (typeCheck(id1, id2) == 3) {
+               VariableEntry temp1 = create("temp", TokenType.REAL);
+               VariableEntry temp2 = create("temp", TokenType.REAL);
+               generate("ltof", id1, temp1);
+               generate("f" + opcode, temp1, id2, temp2);
+               stack.push(temp2);
+           }
+
+           ////////////////////////////////////
+           // end of code from phase 2 /\ /\ /\
+           ////////////////////////////////////
+
+           stack.push(EType.ARITHMETIC);
+       }
+
+#44  : // add everything from here \/ \/ \/
+       EType etype = stack.pop();
+       if (etype == EType.RELATIONAL) {
+           List<Integer> EFalse = stack.pop();
+           List<Integer> ETrue = stack.pop();
+           if (token == AND) {
+               backpatch(ETrue, quadruples.getNextQuad();
+           }
+           stack.push(ETrue);
+           stack.push(EFalse);
+       }
+       // to here /\ /\ /\
+
+       stack.push(token);
+
+#45  : // add all of the code that is not from phase 2
+       EType etype = stack.pop():
+       if (etype == EType.RELATIONAL) {
+           List<Integer> E2False = stack.pop();
+           List<Integer> E2True = stack.pop();
+           Token operator = stack.pop();
+           
+           if (operator == AND) {
+               List<Integer> E1False = stack.pop();
+               List<Integer> E1True = stack.pop();
+               
+               List<Integer> ETrue = E2True;
+               List<Integer> EFalse = merge(E1False, E2False);
+               stack.push(ETrue);
+               stack.push(EFalse);
+               stack.push(EType.Relational);
+           }
+       }
+       else { // if etype == EType.ARITMETIC
+
+           /////////////////////////////////////////
+           // this is the code from phase 2 \/ \/ \/
+           /////////////////////////////////////////
+
+           SymbolTableEntry id2 = stack.pop();
+           Token operator = stack.pop();
+           String opcode = operator.getOpCode();
+           SymbolTableEntry id1 = stack.pop();
+
+           if (typeCheck(id1, id2) != 0 && 
+              (operator == MOD || operator == DIV) {
+               // MOD and DIV require integer operands
+               throw bad parameter error; 
+           }
+       
+           if (typeCheck(id1, id2) == 0) {
+               if (operator == MOD) {
+                   VariableEntry temp1 = create("temp", TokenType.INTEGER);
+                   VariableEntry temp2 = create("temp", TokenType.INTEGER);
+                   VariableEntry temp3 = create("temp", TokenType.INTEGER);
+                   generate("div", id1, id2, temp1);
+                   generate("mul", id2, temp1, temp2);
+                   generate("sub", id1, temp2, temp3);
+                   stack.push(temp3);
+               } else if (operator == /) {
+                   VariableEntry temp1 = create("temp", TokenType.REAL);
+                   VariableEntry temp2 = create("temp", TokenType.REAL);
+                   VariableEntry temp3 = create("temp", TokenType.REAL);
+                   generate("ltof", id1, temp1);
+                   generate("ltof", id2, temp2);
+                   generate("fdiv", temp1, temp2, temp3);
+                   stack.push(temp3);
+               } else {
+                   VariableEntry temp = create("temp", TokenType.INTEGER);
+                   generate(opcode, id1, id2, temp);
+                   stack.push(temp);
+               }
+           } else if (typeCheck(id1, id2) == 1) {
+               VariableEntry temp = create("temp", TokenType.REAL);
+               generate("f" + opcode, id1, id2, temp);
+               stack.push(temp);
+           } else if (typeCheck(id1, id2) == 2) {
+               VariableEntry temp1 = create("temp", TokenType.REAL);
+               VariableEntry temp2 = create("temp", TokenType.REAL);
+               generate("ltof", id2, temp1);
+               generate("f" + opcode, id1, temp1, temp2);
+               stack.push(temp2);
+           } else if (typeCheck(id1, id2) == 3) {
+               VariableEntry temp1 = create("temp", TokenType.REAL);
+               VariableEntry temp2 = create("temp", TokenType.REAL);
+               generate("ltof", id1, temp1);
+               generate("f" + opcode, temp1, id2, temp2);
+               stack.push(temp2);
+           }
+
+           ////////////////////////////////////
+           // end of code from phase 2 /\ /\ /\
+           ////////////////////////////////////
+
+           stack.push(EType.ARITHMETIC);
+       }
+
+#46  : if (token.getType() == TokenType.IDENTIFIER) {
+           // look for the token in the global or local symbol
+           // table, as appropriate
+           SymbolTableEntry id = lookupID(token.getValue());
+           // if token is not found
+           if (id == null) {
+               throw undeclared variable error;
+           }
+           stack.push(id);
+       } else if (token.getType() == TokenType.INTCONTSTANT ||
+                 token.getType() == TokenType.REALCONSTANT) {
+           // look for the token in the constant symbol table
+           SymbolTableEntry id = lookupConstant(token.getValue());
+           // if token is not found
+           if (id == null) {
+               if (token.getType() == TokenType.INTCONSTANT) {
+                   id = contant entry of type integer and value from token;
+               } else if (token.getType() == TokenType.REALCONSTANT) {
+                   id = constant entry of type real and value from token;
+               }
+               insert id into the constant table;
+           }
+           stack.push(id);
+       }
+       stack.push(EType.ARITHMETIC); // <- add this line
+
+#48  : SymbolTableEntry offset = stack.pop(); // <- change this line
+       if (offset != null) {
+           if (offset.isFunction()) { // <- add this if statement
+               // call action 52 with the token from the parser
+               execute(52, token);
+           }
+           else {
+               // this is code from phase 2 \/ \/ \/
+               SymbolTableEntry id = stack.pop();
+               VariableEntry temp = create("temp", id.getType());
+               generate("load", id, offset, temp);
+               stack.push(temp);
+               // end of code from phase 2 /\ /\ /\
+           }
+       }
+       stack.push(EType.ARITHMETIC);
+
+
+
+
+/////////////////////////////////////////////////////////////////////
+NEW ACTIONS:
+/////////////////////////////////////////////////////////////////////
+
+#22  : EType etype = stack.pop();
+       if (etype != EType.RELATIONAL) {
+           throw EType mismatch error
+       }
+       List<Integer> EFalse = stack.pop();
+       List<Integer> ETrue = stack.pop();
+       backpatch(ETrue, quadruples.getNextQuad());
+       stack.push(ETrue);
+       stack.push(EFalse);
+ 
+#24  : int beginLoop = quadruples.getNextQuad();
+       stack.push(beginLoop);
+
+#25  : EType etype = stack.pop();
+       if (etype != EType.RELATIONAL) {
+           throw EType mismatch error
+       }
+       List<Integer> EFalse = stack.pop();
+       List<Integer> ETrue = stack.pop();
+       backpatch(ETrue, quadruples.getNextQuad());
+       stack.push(ETrue);
+       stack.push(EFalse);
+     
+#26  : List<Integer> EFalse = stack.pop();
+       List<Integer> ETrue = stack.pop();
+       // beginLoop is pushed onto the stack in action 24
+       int beginLoop = stack.pop();
+       generate("goto", beginLoop);
+       backpatch(EFalse, quadruples.getNextQuad());
+
+#27  : List<Integer> skipElse = makeList(quadruples.getNextQuad());
+       generate("goto", "_");
+       List<Integer> EFalse = stack.pop();
+       List<Integer> ETrue = stack.pop();
+       backpatch(EFalse, quadruples.getNextQuad());
+       stack.push(skipElse);
+       stack.push(ETrue);
+       stack.push(EFalse);
+
+#28  : List<Integer> EFalse = stack.pop();
+       List<Integer> ETrue = stack.pop();
+       // skipElse is pushed onto the stack in action 27
+       List<Integer> skipElse = stack.pop();
+       backpatch(skipElse, quadruples.getNextQuad());
+
+#29  : List<Integer> EFalse = stack.pop();
+       List<Integer> ETrue = stack.pop();
+       backpatch(EFalse, quadruples.getNextQuad());
+
+#32  : EType etype = stack.pop():
+       SymbolTableEntry id = stack.peek();
+       if (etype != EType.ARITHMETIC) {
+           throw EType mismatch error
+       }
+       if (!id.isArray()) {
+           throw id is not array error
+       }
+
+#33  : EType etype = stack.pop();
+       if (etype != EType.ARITHMETIC) {
+           throw EType mismatch error
+       }
+       SymbolTableEntry id = stack.pop();
+       if (id.getType() != TokenType.INTEGER) {
+           throw type mismatch error (not an EType mismatch error)
+       }
+       ArrayEntry array = stack.peek();
+       VariableEntry temp1 = create("temp", TokenType.INTEGER);
+       VariableEntry temp2 = create("temp", TokenType.INTEGER);
+       generate("move", array.getLowerBound(), temp1);
+       generate("sub", id, temp1, temp2);
+       stack.push(temp2);
+
+#34  : EType etype = stack.pop();
+       SymbolTableEntry id = stack.peek();
+       if (id.isFunction()) {
+           stack.push(etype);
+           execute(52, token);
+       }
+       else {
+           stack.push(null);
+       }
+
+#38  : EType etype = stack.pop();
+       if (etype != EType.ARITHMETIC) {
+           throw EType mismatch error
+       }
+       // token should be an operator
+       stack.push(token);
+
+#39  : EType etype = stack.pop();
+       if (etype != EType.ARITHMETIC) {
+           throw EType mismatch error
+       }
+       SymbolTableEntry id2 = stack.pop();
+       Token operator = stack.pop();
+       // the operator must be replaced with the proper TVI code which
+       // jump if the condition is me
+       // ex. the token representing "<" should be replaced with "blt"
+       String opcode = operator.getOpCode();
+       SymbolTableEntry id1 = stack.pop();
+       if (typecheck(id1, id2) == 2) {
+           VariableEntry temp = create("temp", TokenType.REAL);
+           generate("ltof", id2, temp);
+           generate(opcode, id1, temp, "_");
+       }
+       else if (typecheck(id1, id2) == 3) {
+           VariableEntry temp = create("temp", TokenType.REAL);
+           generate("ltof", id1, temp);
+           generate(opcode, temp, id2, "_");
+       }
+       else {
+           generate(opcode, id1, id2, "_");
+       }
+       generate("goto", "_");
+       List<Integer> ETrue = makeList(quadruples.getNextQuad() - 2);
+       List<Integer> EFalse = makeList(quadruples.getNextQuad() - 1);
+       stack.push(ETrue);
+       stack.push(EFalse);
+       stack.push(EType.RELATIONAL);
+       
+#47  : EType etype = stack.pop();
+       if (etype != EType.RELATIONAL) {
+           throw EType mismatch error
+       }
+
+       // swap ETrue and EFalse on the stack
+       List<Integer> EFalse = stack.pop();
+       List<Integer> ETrue = stack.pop();
+       stack.push(EFalse);
+       stack.push(ETrue);
+       stack.push(EType.RELATIONAL);
+
+#53  : EType etype = stack.pop();
+       SymbolTableEntry id = stack.pop();
+       if (id.isFunction()) {
+           /* // this will be added in the final phase
+           if (id != currentFunction) {
+               throw illegal procedure error
+           }
+           stack.push(id.getResult());
+           stack.push(EType.ARITHMETIC);
+           */
+       } 
+       else {
+           stack.push(id);
+           stack.push(etype);
+       }
+ 
+#54  : EType etype = stack.pop();
+       SymbolTableEntry id = stack.peek();
+       if (!id.isProcedure()) {
+           throw illegal procedure error
+       }
+       stack.push(etype);

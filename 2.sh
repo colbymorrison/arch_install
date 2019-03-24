@@ -1,5 +1,5 @@
-# Post cfg pre chroot
 #!/bin/bash
+# Post cfg pre chroot
 mkfs.ext4 /dev/sda1
 mkfs.ext4 /dev/sda2
 mkswap /dev/sda3

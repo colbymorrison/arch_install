@@ -1,4 +1,5 @@
 #!/bin/bash
+# Post chroot
 ln -sf /usr/share/zoneinfo/america/New_York /etc/localtime
 hwclock --systohc
 cat /etc/local.gen | sed 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8'
